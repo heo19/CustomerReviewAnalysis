@@ -104,23 +104,31 @@ df['attention_mask'] = df['cleaned_text'].apply(lambda x: tokenize_data(x)['atte
 
 input_ids = torch.stack(df['input_ids'].tolist()) # stack the input_ids into a tensor
 attention_masks = torch.stack(df['attention_mask'].tolist()) # stack the attention_masks into a tensor
-labels = torch.tensor([0]*len(df))  # Dummy labels for the purpose of the exercise
+labels = torch.tensor([0]*len(df))  # Dummy labels
 
+# Create a ReviewFeature class to store input_ids, attention_mask, and label
+# This debug the error of having  TypeError: vars() argument must have dict attribute
+# ensure that each feature in your dataset is an instance of a class, rather than a primitive data type or a tuple.
 class ReviewFeature:
     def __init__(self, input_ids, attention_mask, label):
         self.input_ids = input_ids
         self.attention_mask = attention_mask
         self.label = label
 
-dataset = torch.utils.data.TensorDataset(input_ids, attention_masks, labels) # Create a PyTorch dataset from the input data
+#dataset = torch.utils.data.TensorDataset(input_ids, attention_masks, labels) # Create a PyTorch dataset from the input data
 
-dataset = [ReviewFeature(input_id, attention_mask, label) for input_id, attention_mask, label in zip(input_ids, attention_masks, labels)] # Create a list of ReviewFeature objects
+#Create Dataset from the ReviewFeature class
+dataset = [ReviewFeature(input_id, attention_mask, label) for input_id, attention_mask, label in zip(input_ids, attention_masks, labels)]
+
 #Fine-tuning the BERT model
 model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=3)
 
+#Split the dataset into training and testing sets
 train_size = 0.8
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [int(train_size * len(dataset)), len(dataset) - int(train_size * len(dataset))])
-#print(train_dataset[0])
+#print(train_dataset[0]) # Debugging
+
+# Set training arguments for the Trainer
 training_args = TrainingArguments(
     output_dir='./results',
     num_train_epochs=3,
@@ -132,6 +140,7 @@ training_args = TrainingArguments(
     logging_steps=10,
 )
 
+# Create a Trainer instance to train the model
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -139,13 +148,17 @@ trainer = Trainer(
     eval_dataset=test_dataset,
 )
 
+# Train the model
 trainer.train()
 
+# Make predictions on the test dataset
 predictions, _, _ = trainer.predict(test_dataset)
 predictions = np.argmax(predictions, axis=1)
 
-
+# Get the true labels from the test dataset
 test_labels = [label.label for label in test_dataset]
+
+# Evaluate the model performance
 accuracy = accuracy_score(test_labels, predictions)
 precision = precision_score(test_labels, predictions, average='weighted')
 recall = recall_score(test_labels, predictions, average='weighted')
