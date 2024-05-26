@@ -12,7 +12,6 @@ import random
 from nltk.corpus import stopwords  # remove meaningless words.
 from nltk.tokenize import word_tokenize  # For tokenizing text into words. Splitting text into words.
 import re  # regex
-from flask import Flask, request, jsonify  # For creating a web server and API
 
 # Download necessary NLTK data files for stopwords and tokenization
 nltk.download('stopwords') # words that are meaningless
@@ -37,7 +36,7 @@ def get_amazon_reviews(url):
     reviews = [] # list to store reviews
     page = 1 # starting page number
 
-    while page <= 1:
+    while page <= 20:
         # Send a GET request to the Amazon URL
         response = requests.get(url + f'/ref=cm_cr_getr_d_paging_btm_next_{page}?pageNumber={page}', headers=headers)
         if response.status_code != 200: # status 200 means the request was not susccessful.
@@ -57,7 +56,10 @@ def get_amazon_reviews(url):
         #Repeat for each review block to get the data.
         for block in review_blocks:
             review_text = block.find('span', {'data-hook': 'review-body'}).get_text().strip()
-            reviews.append(review_text)
+            r_rating_element = block.select_one("i.review-rating")
+            r_rating = r_rating_element.text.replace("out of 5 stars", "") if r_rating_element else None
+            reviews.append((review_text, int(float(r_rating))))  # Store review text and rating
+    
 
         # Move to the next page
         page += 1
@@ -66,7 +68,7 @@ def get_amazon_reviews(url):
 
 amazon_url = "https://www.amazon.com/Kafka-on-Shore-Haruki-Murakami-audiobook/dp/B00EAP9IPO/ref=sr_1_1?crid=2SJ4BF9ZWDXOC&dib=eyJ2IjoiMSJ9.qwjK8ZqjsMNT30fFhM6Dc53BogejxRiwSiljKlnyu20gp1BOEUnHIUNF2B5NPs3pbL3LYoI-XZmmgy3LbO94sj4tKLfhrg3UlzI_-MdoMiDYeRrHO_tsGIQzKsJg9rAxNumOolTsZFpRuCDz1535fTgRRq0zyYZ9L2zIhjNSrQN8yiDWMuP17GvBCaibTLICy4RCj01KFHxmC6cbRFJTS3iZHmdVHDBBXuNH7aVx8-4.BiiRep5dkL3k1tp2gKCPN_np0EMeUEc-nuVv0MmGSi8&dib_tag=se&keywords=Kafka+on+the+Shore&qid=1716647258&sprefix=kafka+on+the+shore%2Caps%2C244&sr=8-1" # Url of the product page
 reviews = get_amazon_reviews(amazon_url) # Get reviews from the Amazon product page
-df = pd.DataFrame(reviews, columns=['review']) # Create a DataFrame from the reviews
+df = pd.DataFrame(reviews, columns=['review', 'rating']) # Create a DataFrame from the reviews
 
 # Check if reviews are fetched correctly
 if not reviews:
@@ -104,7 +106,7 @@ df['attention_mask'] = df['cleaned_text'].apply(lambda x: tokenize_data(x)['atte
 
 input_ids = torch.stack(df['input_ids'].tolist()) # stack the input_ids into a tensor
 attention_masks = torch.stack(df['attention_mask'].tolist()) # stack the attention_masks into a tensor
-labels = torch.tensor([0]*len(df))  # Dummy labels
+labels = torch.tensor(df['rating'].values) # convert the ratings into a tensor
 
 # Create a ReviewFeature class to store input_ids, attention_mask, and label
 # This debug the error of having  TypeError: vars() argument must have dict attribute
@@ -121,7 +123,7 @@ class ReviewFeature:
 dataset = [ReviewFeature(input_id, attention_mask, label) for input_id, attention_mask, label in zip(input_ids, attention_masks, labels)]
 
 #Fine-tuning the BERT model
-model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=3)
+model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=6)
 
 #Split the dataset into training and testing sets
 train_size = 0.8
