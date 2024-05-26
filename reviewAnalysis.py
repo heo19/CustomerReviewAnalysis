@@ -36,7 +36,7 @@ def get_amazon_reviews(url):
     reviews = [] # list to store reviews
     page = 1 # starting page number
 
-    while page <= 20:
+    while page <= 10:
         # Send a GET request to the Amazon URL
         response = requests.get(url + f'/ref=cm_cr_getr_d_paging_btm_next_{page}?pageNumber={page}', headers=headers)
         if response.status_code != 200: # status 200 means the request was not susccessful.
@@ -159,7 +159,8 @@ predictions = np.argmax(predictions, axis=1)
 
 # Get the true labels from the test dataset
 test_labels = [label.label for label in test_dataset]
-
+print(test_labels)
+print(predictions)
 # Evaluate the model performance
 accuracy = accuracy_score(test_labels, predictions)
 precision = precision_score(test_labels, predictions, average='weighted')
