@@ -36,7 +36,7 @@ def get_amazon_reviews(url):
     reviews = [] # list to store reviews
     page = 1 # starting page number
 
-    while page <= 10:
+    while page <= 20:
         # Send a GET request to the Amazon URL
         response = requests.get(url + f'/ref=cm_cr_getr_d_paging_btm_next_{page}?pageNumber={page}', headers=headers)
         if response.status_code != 200: # status 200 means the request was not susccessful.
@@ -137,7 +137,7 @@ training_args = TrainingArguments(
     per_device_train_batch_size=8,
     per_device_eval_batch_size=8,
     warmup_steps=500,
-    weight_decay=0.01,
+    weight_decay=0.05,
     logging_dir='./logs',
     logging_steps=10,
 )
